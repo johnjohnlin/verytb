@@ -1,0 +1,28 @@
+name: Unittest
+on:
+  pull_request:
+    branches:
+      - master
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install System
+        run: |
+          sudo apt-get update
+          sudo ln -fs /usr/share/zoneinfo/Asia/Taipei /etc/localtime
+          sudo apt-get install -y libspdlog-dev cmake g++ libgtest-dev build-essential gdb libboost-dev verilator libz-dev python3
+          sudo dpkg-reconfigure --frontend noninteractive tzdata
+      - name: Configure CMake
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release -B build verytb/
+      - name: Build everything
+        run: |
+          cd build
+          make -j
+      - name: Run unittests
+        run: |
+          cd build
+          ctest -j
