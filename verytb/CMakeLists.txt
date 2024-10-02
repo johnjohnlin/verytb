@@ -18,9 +18,9 @@ file(GLOB_RECURSE MAIN_FILES "*.main.cpp")
 include_directories(${CMAKE_SOURCE_DIR})
 
 # build the library
-# add_library(verytb STATIC ${CPP_FILES})
-# target_link_libraries(verytb PRIVATE spdlog::spdlog)
-set(COMMON_LIBS spdlog::spdlog)
+add_library(verytb STATIC ${LIB_FILES})
+target_link_libraries(verytb PUBLIC spdlog::spdlog)
+set(COMMON_LIBS verytb)
 
 # build the tests
 enable_testing()
