@@ -46,7 +46,7 @@ public:
 	void BaseName(const std::string_view basename);
 	const std::string& BaseName() const;
 	std::string Name() const;
-	static constexpr unsigned kNotIndexed = 0;
+	static constexpr unsigned kNotIndexed = -1u;
 };
 
 template<typename T>
@@ -77,7 +77,7 @@ private:
 		if constexpr (kCanAccessCtor) {
 			Construct();
 		} else {
-			spdlog::critical("{} is not Construct()-ed explicitly but cannot be default initialized", HierarchicalName());
+			SPDLOG_CRITICAL("{} is not Construct()-ed explicitly but cannot be default initialized", HierarchicalName());
 		}
 	}
 
@@ -87,8 +87,8 @@ public:
 	Module& operator=(const Module&) = delete;
 	Module& operator=(Module&&) = delete;
 
-	T* operator->() { }
-	const T* operator->() const { }
+	T* operator->() { return &self(); }
+	const T* operator->() const { return &self(); }
 	Module() {
 		ModuleBase::AppendChild(this);
 	}
