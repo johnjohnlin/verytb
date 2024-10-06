@@ -10,8 +10,9 @@
 #include <utility>
 #include <vector>
 // Other libraries' .h files.
-#include <spdlog/spdlog.h>
+#include <boost/pool/object_pool.hpp>
 // Your project's .h files.
+#include "common/logging.h"
 
 using namespace std;
 
@@ -26,7 +27,9 @@ struct ModuleBase_impl {
 	vector<ModuleBase*> children_;
 	unsigned index_ = ModuleBase::kNotIndexed;
 	bool initialized_ = false;
+	static boost::object_pool<ModuleBase_impl> pool_;
 };
+boost::object_pool<ModuleBase_impl> ModuleBase_impl::pool_;
 
 } // namespace detail
 
@@ -41,7 +44,7 @@ void ModuleBase::AppendChild(ModuleBase* child) {
 
 void ModuleBase::CheckDoubleConstruct() const {
 	if (impl_->initialized_) {
-		SPDLOG_CRITICAL("{} is already Construct()-ed", HierarchicalName());
+		LOG_(critical, "{} is already Construct()-ed", HierarchicalName());
 	}
 }
 
@@ -78,6 +81,10 @@ void ModuleBase::EndInitModule() {
 	build_stack_.pop_back();
 }
 
+bool ModuleBase::InitDone() const {
+	return impl_->initialized_;
+}
+
 void ModuleBase::HierarchicalName(string &s) const {
 	if (impl_->parent_ != nullptr) {
 		impl_->parent_->HierarchicalName(s);
@@ -112,7 +119,11 @@ string ModuleBase::Name() const {
 	return name;
 }
 
-ModuleBase::ModuleBase() : impl_(new detail::ModuleBase_impl) {}
+ModuleBase::ModuleBase():
+	impl_(detail::ModuleBase_impl::pool_.construct()) // pointer auto recycle by pool
+{
+}
+
 ModuleBase::~ModuleBase() {}
 
 } // namespace verytb::model

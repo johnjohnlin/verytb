@@ -2,15 +2,14 @@
 // direct include
 // C system headers
 // C++ standard library headers
-#include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
 // Other libraries' .h files.
-#include <spdlog/spdlog.h>
 // Your project's .h files.
+#include "common/logging.h"
 
 namespace verytb::model {
 
@@ -27,7 +26,7 @@ class ModuleBase {
 	// We decide to make everything hidden and leave only one pointer,
 	// by which we lose some performance but win some memory usage and compile time.
 	// It is ok since these function are usually not frequently called.
-	std::unique_ptr<detail::ModuleBase_impl> impl_;
+	detail::ModuleBase_impl* impl_;
 
 protected:
 	ModuleBase();
@@ -40,6 +39,7 @@ protected:
 private:
 	void HierarchicalName(std::string &s) const;
 	void CheckDoubleConstruct() const;
+	bool InitDone() const;
 
 public:
 	std::string HierarchicalName() const;
@@ -50,7 +50,7 @@ public:
 };
 
 template<typename T>
-class Module : public virtual ModuleBase {
+class Module: public virtual ModuleBase {
 	// Test whether we can access T::T, we don't split this into another class,
 	// since we usually require you to friend Module<T> and protect constructor
 	// base class
@@ -71,7 +71,10 @@ public:
 private:
 
 	alignas(T) char storage_[sizeof(T)];
-	T& self() { return *reinterpret_cast<T*>(storage_); }
+	T& self() {
+		// InitDone();
+		return *reinterpret_cast<T*>(storage_);
+	}
 
 	virtual void DefaultConstructIfPossible() override {
 		if constexpr (kCanAccessCtor) {

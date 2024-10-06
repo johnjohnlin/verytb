@@ -2,8 +2,12 @@ cmake_minimum_required (VERSION 3.16)
 project(verytb)
 
 # setup
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_definitions(LOGGER_DISABLE_DCHECK)
+endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+find_package(Boost REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(GTest REQUIRED)
 

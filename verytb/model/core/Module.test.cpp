@@ -43,16 +43,20 @@ public:
 	Module<Module2> m2;
 };
 
-TEST(Module, StaticBehavior) {
+class Module_test : public ::testing::Test {
+protected:
+	void SetUp() override {
+		verytb::InitLogger();
+	}
+};
+
+TEST_F(Module_test, StaticBehavior) {
 	static_assert(Module<Module1>::kDefaultName == "u_m1");
 	static_assert(Module<Module2>::kDefaultName == "u_m2");
 	static_assert(Module<Module3>::kDefaultName == "u_module");
 };
 
-TEST(Module, Names) {
-	spdlog::set_level(spdlog::level::debug);
-	spdlog::set_pattern("[%L+%o %s:%#] %v");
-
+TEST_F(Module_test, Names) {
 	Module<Module3> m3;
 	m3.Construct();
 
