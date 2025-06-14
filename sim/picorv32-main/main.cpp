@@ -1,5 +1,5 @@
 // Direct include
-#include "Vpicorv32_axi/Vpicorv32_axi.h"
+#include "Vpicorv32_axi.h"
 // C system headers
 // C++ standard library headers
 #include <deque>

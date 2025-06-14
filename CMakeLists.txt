@@ -11,3 +11,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_subdirectory(verytb)
 
 # Add any demo project here
+add_subdirectory(sim/picorv32-main)
