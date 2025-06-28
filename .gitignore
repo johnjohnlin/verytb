@@ -2,6 +2,7 @@
 build
 # Generated waveform
 *.fst
+*.fst.hier
 *.vcd
 # Generated firmware
 *.bin

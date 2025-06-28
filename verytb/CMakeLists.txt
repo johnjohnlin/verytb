@@ -1,9 +1,5 @@
 cmake_minimum_required (VERSION 3.16)
-project(verytb)
 
-# setup
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
 find_package(GTest REQUIRED)
 # find_package(spdlog REQUIRED)
 
@@ -19,11 +15,11 @@ list(FILTER LIB_FILES EXCLUDE REGEX ".*\\.main\\.cpp$")
 file(GLOB_RECURSE MTEST_FILES "*.mtest.cpp")
 file(GLOB_RECURSE TEST_FILES "*.test.cpp")
 file(GLOB_RECURSE MAIN_FILES "*.main.cpp")
-include_directories(${CMAKE_SOURCE_DIR})
 
 # build the library
 add_library(verytb STATIC ${LIB_FILES})
-target_link_libraries(verytb PRIVATE gmp)
+target_link_libraries(verytb PRIVATE gmp fmt)
+target_include_directories(verytb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set(COMMON_LIBS verytb)
 
 # build the tests
