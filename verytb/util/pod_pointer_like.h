@@ -78,28 +78,29 @@ struct PoolAllocationInfo {
 };
 
 class MemoryPool {
-	MemoryPool() { pools_.reserve(32); }
 	MemoryPool(const MemoryPool&) = delete;
 	MemoryPool& operator=(const MemoryPool&) = delete;
 	MemoryPool(MemoryPool&&) = delete;
 	MemoryPool& operator=(MemoryPool&&) = delete;
-	~MemoryPool() = default;
+
+	void LazyInitializeToPoolIndex(unsigned pool_index);
 
 public:
+
+	friend class MemoryPoolDebugProxy; // only for testing and debugging purposes, define privately in cpp
+	// Singleton instance
+	static MemoryPool& Instance() {
+		static MemoryPool instance;
+		return instance;
+	}
+	MemoryPool() { pools_.reserve(32); } // you can still create a MemoryPool without singleton instance
+	~MemoryPool() = default;
+
 	void* Malloc(unsigned pool_index) {
 		if (pool_index >= pools_.size()) [[unlikely]] {
-			pools_.resize(pool_index + 1);
-			for (unsigned i = 0; i <= pool_index; ++i) {
-				auto& pool = pools_[i];
-				// Initialize the pool block size information if it hasn't been initialized yet
-				// while we can initialize the pool ouside this if statement,
-				// we want to avoid doing it for every allocation since this if branch is unlikely to be taken
-				if (pool.block_bytes == 0) {
-					auto info = PoolAllocationBlockInfo::IndexToBlockInfo(i);
-					pool.block_bytes = info.block_bytes;
-					pool.num_blocks_per_allocation = info.num_blocks_per_allocation;
-				}
-			}
+			// move the content of this branch to a separate function to avoid code duplication
+			// since Malloc is called frequently and this branch is very unlikely to be taken
+			LazyInitializeToPoolIndex(pool_index);
 		}
 		return pools_[pool_index].malloc(pool_index);
 	}
@@ -108,38 +109,33 @@ public:
 		pools_[pool_index].free(pool_index, ptr);
 	}
 
-	// Singleton instance
-	static MemoryPool& Instance() {
-		static MemoryPool instance;
-		return instance;
-	}
-
-private:
-	struct PoolWrapper {
+	// This is public only for testing and debugging purposes.
+	// Users should not rely on this interface.
+	class PoolWrapper {
+		void EnsureEnoughFree(unsigned pool_index);
+	public:
 		// store the actual memory pool (has ownership of the memory)
 		std::vector<std::unique_ptr<char[]>> memory_pool_;
 		// pointers to memory_pool_
-		std::vector<void*> free_list_;
-		unsigned block_bytes = 0;
-		unsigned num_blocks_per_allocation = 0;
+		std::vector<void*> free_list;
+		PoolAllocationBlockInfo block_info = {0, 0};
 
 		void* malloc(unsigned pool_index) {
-			if (free_list_.empty()) [[unlikely]] {
-				// Allocate a new block of memory
-				memory_pool_.emplace_back(new char[block_bytes * num_blocks_per_allocation]);
-				for (unsigned i = 0; i < num_blocks_per_allocation; ++i) {
-					free_list_.push_back(memory_pool_.back().get() + i * block_bytes);
-				}
+			if (free_list.empty()) [[unlikely]] {
+				// move the content of this branch to a separate function to avoid code duplication
+				// since malloc is called frequently and this branch is unlikely to be taken
+				EnsureEnoughFree(pool_index);
 			}
-			void* ptr = free_list_.back();
-			free_list_.pop_back();
+			void* ptr = free_list.back();
+			free_list.pop_back();
 			return ptr;
 		}
 
 		void free(unsigned pool_index, void* ptr) {
-			free_list_.push_back(ptr);
+			free_list.push_back(ptr);
 		}
 	};
+private:
 	std::vector<PoolWrapper> pools_;
 };
 
@@ -167,14 +163,14 @@ struct pointer_storage<T, PointerMode::eByPointerPool> {
 		new (storage_) T(std::forward<Args>(args)...);
 	}
 	~pointer_storage() {
-		if (storage_) {
-			storage_->~T();
-			MemoryPool::Instance().Free(static_cast<void*>(storage_), kPoolIndex);
-		}
+		storage_->~T();
+		MemoryPool::Instance().Free(static_cast<void*>(storage_), kPoolIndex);
 	}
 	T* get() { return storage_; }
 	const T* get() const { return storage_; }
-	pointer_storage(pointer_storage&& rhs) : storage_(rhs.storage_) { rhs.storage_ = nullptr; }
+	pointer_storage(pointer_storage&& rhs) : storage_(rhs.storage_) {
+		std::swap(rhs.storage_, storage_);
+	}
 	pointer_storage& operator=(pointer_storage&& rhs) {
 		std::swap(storage_, rhs.storage_);
 		return *this;
