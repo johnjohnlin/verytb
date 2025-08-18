@@ -1,7 +1,8 @@
-cmake_minimum_required (VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
+project(verytb)
 
 find_package(GTest REQUIRED)
-# find_package(spdlog REQUIRED)
+find_package(spdlog REQUIRED)
 
 # I still want assertion with RelWithDebInfo
 string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
