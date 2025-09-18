@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_library(picorv32_axi)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(PARAMS
   -GENABLE_IRQ=1
@@ -31,4 +31,4 @@ verilate(
 )
 
 add_executable(picorv32_tb main.cpp)
-target_link_libraries(picorv32_tb picorv32_axi)
+target_link_libraries(picorv32_tb picorv32_axi verytb)

@@ -11,9 +11,11 @@
 // Other libraries' .h files.
 #include "immintrin.h"
 #include "verilated_fst_c.h"
+#include "model/core/Interface.h"
 // Your project's .h files.
 
 using namespace std;
+using namespace verytb::model;
 
 struct ar_s {
 	uint8_t prot;
@@ -34,17 +36,16 @@ struct b_s {
 };
 
 template <typename T>
-void OptionalToQueue(optional<T>& opt, deque<T>& dq, unsigned max_size) {
-	if (opt.has_value() and dq.size() < max_size) {
-		dq.push_back(move(*opt));
-		opt.reset();
+void InterfaceToQueue(ValidReadyIn<T> *interface, deque<T>& dq, unsigned max_size) {
+	if (interface->can_read() and dq.size() < max_size) {
+		dq.push_back(move(interface->read()));
 	}
 }
 
 template <typename T>
-void QueueToOptional(deque<T>& dq, optional<T>& opt) {
-	if (!opt.has_value() && !dq.empty()) {
-		opt = move(dq.front());
+void QueueToInterface(deque<T> &dq, ValidReadyOut<T> *interface) {
+	if (interface->can_write() && !dq.empty()) {
+		interface->write(dq.front());
 		dq.pop_front();
 	}
 }
@@ -62,11 +63,11 @@ void BitMaskToByteMask(uint64_t& byte_mask, uint8_t bit_mask) {
 }
 
 struct Vpicorv32Wrap {
-	optional<ar_s>* ar;
-	optional<aw_s>* aw;
-	optional<r_s>* r;
-	optional<w_s>* w;
-	optional<b_s>* b;
+	ValidReadyOut<aw_s> *aw;
+	ValidReadyOut<w_s>* w;
+	ValidReadyOut<ar_s> *ar;
+	ValidReadyIn<r_s>* r;
+	ValidReadyIn<b_s>* b;
 	uint32_t *irq;
 
 private:
@@ -107,28 +108,27 @@ public:
 		// better to use RAII to manage
 
 		// Only Valid/Ready & Signal input and signal out are put here
-		dut.mem_axi_rvalid = r->has_value();
+		dut.mem_axi_rvalid = r->can_read();
 		if (dut.mem_axi_rvalid) {
-			dut.mem_axi_rdata = r->value().data;
+			dut.mem_axi_rdata = r->read().data;
 		}
-		dut.mem_axi_bvalid = b->has_value();
+		dut.mem_axi_bvalid = b->can_read();
 		dut.irq = *irq;
 
 		dut.eval();
-
 		if (dut.mem_axi_rvalid and dut.mem_axi_rready) {
-			r->reset();
+			r->read();
 		}
 		if (dut.mem_axi_bvalid and dut.mem_axi_bready) {
-			b->reset();
+			b->read();
 		}
 	}
 
 	void Post() {
 		// better to use RAII to manage
-		bool arready = not ar->has_value();
-		bool awready = not aw->has_value();
-		bool wready = not w->has_value();
+		bool arready = ar->can_write();
+		bool awready = aw->can_write();
+		bool wready = w->can_write();
 		bool arvalid = dut.mem_axi_arvalid;
 		bool awvalid = dut.mem_axi_awvalid;
 		bool wvalid = dut.mem_axi_wvalid;
@@ -137,23 +137,23 @@ public:
 		dut.mem_axi_wready = wready;
 		Eval();
 		if (arvalid and arready) {
-			*ar = {dut.mem_axi_arprot, dut.mem_axi_araddr};
+			ar->write({dut.mem_axi_arprot, dut.mem_axi_araddr});
 		}
 		if (awvalid and awready) {
-			*aw = {dut.mem_axi_awprot, dut.mem_axi_awaddr};
+			aw->write({dut.mem_axi_awprot, dut.mem_axi_awaddr});
 		}
 		if (wvalid and wready) {
-			*w = {dut.mem_axi_wdata, dut.mem_axi_wstrb};
+			w->write({dut.mem_axi_wdata, dut.mem_axi_wstrb});
 		}
 	}
 };
 
 struct AxiMemory {
-	optional<ar_s>* ar;
-	optional<aw_s>* aw;
-	optional<r_s>* r;
-	optional<w_s>* w;
-	optional<b_s>* b;
+	ValidReadyIn<ar_s>* ar;
+	ValidReadyIn<aw_s>* aw;
+	ValidReadyIn<w_s>* w;
+	ValidReadyOut<r_s>* r;
+	ValidReadyOut<b_s>* b;
 	vector<uint32_t> memory_space;
 	bool simulation_passed = false;
 
@@ -170,9 +170,9 @@ public:
 	}
 
 	void HandleInput_() {
-		OptionalToQueue(*ar, ar_q, 128);
-		OptionalToQueue(*aw, aw_q, 128);
-		OptionalToQueue(*w, w_q, 128);
+		InterfaceToQueue(ar, ar_q, 128);
+		InterfaceToQueue(aw, aw_q, 128);
+		InterfaceToQueue(w, w_q, 128);
 	}
 
 	void Exec_() {
@@ -213,8 +213,8 @@ public:
 	}
 
 	void HandleOutput() {
-		QueueToOptional(r_q, *r);
-		QueueToOptional(b_q, *b);
+		QueueToInterface(r_q, r);
+		QueueToInterface(b_q, b);
 	}
 };
 
@@ -257,11 +257,11 @@ vector<uint32_t> ReadBin(const string& filename) {
 
 int main() {
 	// Channe
-	optional<ar_s> ar;
-	optional<aw_s> aw;
-	optional<r_s> r;
-	optional<w_s> w;
-	optional<b_s> b;
+	ValidReady<aw_s> aw;
+	ValidReady<ar_s> ar;
+	ValidReady<r_s> r;
+	ValidReady<w_s> w;
+	ValidReady<b_s> b;
 	uint32_t irq;
 
 	// Module
